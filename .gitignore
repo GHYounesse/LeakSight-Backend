@@ -1,0 +1,60 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# macOS
+.DS_Store
+
+# Logs and local databases
+*.log
+*.sqlite3
+*.db
+
+# Coverage and test results
+htmlcov/
+.coverage
+.tox/
+.nox/
+pytest_cache/
+
+# mypy and other tooling
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+
+# Build and dist artifacts
+build/
+dist/
+*.egg-info/
+
+# Node modules (if using npm/yarn in frontend)
+node_modules/
+
+# Celery or task queues (if used)
+celerybeat-schedule
+celerybeat.pid
+
+# MongoDB dump/restore files (if used)
+dump/
+*.bson
+*.metadata.json
