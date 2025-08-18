@@ -58,3 +58,7 @@ celerybeat.pid
 dump/
 *.bson
 *.metadata.json
+
+
+# Static files
+/static
