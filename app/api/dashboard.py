@@ -262,86 +262,397 @@ async def clear_cache():
             detail="Error clearing cache"
         )
         
-from fastapi import FastAPI, HTTPException
+# from fastapi import FastAPI, HTTPException
+# from typing import List, Dict, Any, Optional
+# from datetime import datetime, date
+# from collections import defaultdict, Counter
+# import json
+# import redis
+# import hashlib
+# from contextlib import asynccontextmanager
+
+# OTX_CACHE_EXPIRATION = 4 * 24 * 60 * 60  # 4 days in seconds
+
+
+# OTX_API_KEY = os.getenv("ALIEN_VAULT_KEY")
+# async def fetch_otx_pulses() -> List[Dict[str, Any]]:
+#     if not OTX_API_KEY:
+#         raise HTTPException(status_code=500, detail="OTX API key not configured")
+
+#     headers = {"X-OTX-API-KEY": OTX_API_KEY}
+#     url = "https://otx.alienvault.com/api/v1/search/pulses?limit=100&page=1&sort=-modified"
+
+#     try:
+#         async with httpx.AsyncClient() as client:
+#             response = await client.get(url, headers=headers)
+#             print("Status code:", response.status_code)
+#             print("Response text:", response.text)
+#             response.raise_for_status()
+#             data = await response.json()
+#             pulses = data.get("results", [])
+#     except httpx.HTTPStatusError as e:
+#         raise HTTPException(status_code=e.response.status_code, detail=f"HTTP error: {e.response.text}")
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to fetch OTX data: {str(e)}")
+
+#     return pulses
+
+
+# def get_otx_cache_key(endpoint: str, params: Optional[Dict] = None) -> str:
+#     """Generate a consistent cache key for the endpoint."""
+#     key_data = f"{endpoint}"
+#     if params:
+#         # Sort params for consistent key generation
+#         sorted_params = json.dumps(params, sort_keys=True)
+#         key_data += f":{sorted_params}"
+    
+#     # Create a hash for cleaner keys
+#     return f"otx_cache:{hashlib.md5(key_data.encode()).hexdigest()}"
+
+# def get_otx_from_cache(cache_key: str) -> Optional[Dict]:
+#     """Retrieve data from Redis cache."""
+#     if not redis_client:
+#         return None
+    
+#     try:
+#         cached_data = redis_client.get(cache_key)
+#         if cached_data:
+#             return json.loads(cached_data)
+#     except (redis.RedisError, json.JSONDecodeError) as e:
+#         print(f"Cache read error: {e}")
+    
+#     return None
+
+# def set_otx_to_cache(cache_key: str, data: Dict, expiration: int = OTX_CACHE_EXPIRATION) -> bool:
+#     """Store data in Redis cache with expiration."""
+#     if not redis_client:
+#         return False
+    
+#     try:
+#         redis_client.setex(
+#             cache_key,
+#             expiration,
+#             json.dumps(data, default=str)  # default=str handles datetime serialization
+#         )
+#         return True
+#     except (redis.RedisError, json.JSONEncodeError) as e:
+#         print(f"Cache write error: {e}")
+#         return False
+
+# def invalidate_cache_pattern(pattern: str) -> int:
+#     """Invalidate cache entries matching a pattern."""
+#     if not redis_client:
+#         return 0
+    
+#     try:
+#         keys = redis_client.keys(pattern)
+#         if keys:
+#             return redis_client.delete(*keys)
+#         return 0
+#     except redis.RedisError as e:
+#         print(f"Cache invalidation error: {e}")
+#         return 0
+    
+
+# def process_trending_timeline(pulses: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+#     """Process pulses to create trending attack campaigns timeline."""
+#     date_counts = defaultdict(int)
+    
+#     for pulse in pulses:
+#         # Parse the created date and extract just the date part
+#         created_datetime = datetime.fromisoformat(pulse["created"].replace("Z", "+00:00"))
+#         date_str = created_datetime.date().isoformat()
+#         date_counts[date_str] += 1
+    
+#     # Sort by date ascending
+#     timeline = [
+#         {"date": date_str, "count": count}
+#         for date_str, count in sorted(date_counts.items())
+#     ]
+    
+#     return timeline
+
+# def process_top_malware_families(pulses: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+#     """Process pulses to get top malware families by pulse count."""
+#     malware_counts = Counter()
+    
+#     for pulse in pulses:
+#         for malware_family in pulse.get("malware_families", []):
+#             family_name = malware_family.get("display_name")
+#             if family_name:
+#                 malware_counts[family_name] += 1
+    
+#     # Get top 10 malware families
+#     top_malware = [
+#         {"malware_family": family, "count": count}
+#         for family, count in malware_counts.most_common(10)
+#     ]
+    
+#     return top_malware
+
+# def process_popularity_leaderboard(pulses: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+#     """Process pulses to create popularity leaderboard by subscriber count."""
+#     # Sort by subscriber_count descending and take top 10
+#     sorted_pulses = sorted(
+#         pulses, 
+#         key=lambda x: x.get("subscriber_count", 0), 
+#         reverse=True
+#     )[:10]
+    
+#     leaderboard = [
+#         {
+#             "pulse_name": pulse.get("name", "Unknown"),
+#             "subscriber_count": pulse.get("subscriber_count", 0),
+#             "export_count": pulse.get("export_count", 0)
+#         }
+#         for pulse in sorted_pulses
+#     ]
+    
+#     return leaderboard
+
+# def process_indicator_type_distribution(pulses: List[Dict[str, Any]]) -> Dict[str, int]:
+#     """Process pulses to aggregate indicator type counts."""
+#     total_indicators = defaultdict(int)
+    
+#     for pulse in pulses:
+#         indicator_counts = pulse.get("indicator_type_counts", {})
+#         for indicator_type, count in indicator_counts.items():
+#             total_indicators[indicator_type] += count
+    
+#     return dict(total_indicators)
+
+# @dashboard_router.get("/otx/pulse-insights")
+# async def get_pulse_insights():
+#     """
+#     Fetch and process AlienVault OTX pulse data to return structured insights.
+#     Results are cached in Redis for 4 days to improve performance.
+    
+#     Returns:
+#         dict: JSON response containing trending timeline, top malware families,
+#               popularity leaderboard, and indicator type distribution.
+#     """
+#     # Generate cache key
+#     cache_key = get_otx_cache_key("pulse_insights")
+    
+#     # Try to get from cache first
+#     cached_result = get_otx_from_cache(cache_key)
+#     if cached_result:
+#         logger.info(f"OTX Cache hit for key: {cache_key}")
+#         # Add cache metadata
+#         cached_result["_cache_info"] = {
+#             "cached": True,
+#             "cache_key": cache_key,
+#             "retrieved_at": datetime.utcnow().isoformat()
+#         }
+#         return cached_result
+    
+#     try:
+        
+#         pulses = await fetch_otx_pulses()
+        
+#         if not pulses:
+#             raise HTTPException(status_code=404, detail="No pulse data available")
+        
+#         # Process the different datasets
+#         trending_timeline = process_trending_timeline(pulses)
+#         top_malware_families = process_top_malware_families(pulses)
+#         popularity_leaderboard = process_popularity_leaderboard(pulses)
+#         indicator_type_distribution = process_indicator_type_distribution(pulses)
+        
+#         # Structure the response
+#         response = {
+#             "trendingTimeline": trending_timeline,
+#             "topMalwareFamilies": top_malware_families,
+#             "popularityLeaderboard": popularity_leaderboard,
+#             "indicatorTypeDistribution": indicator_type_distribution,
+#             "metadata": {
+#                 "total_pulses": len(pulses),
+#                 "processed_at": datetime.utcnow().isoformat(),
+#                 "cache_duration_hours": OTX_CACHE_EXPIRATION // 3600
+#             }
+#         }
+        
+#         # Cache the response
+#         cache_success = set_otx_to_cache(cache_key, response)
+        
+#         # Add cache info to response
+#         response["_cache_info"] = {
+#             "cached": False,
+#             "cache_stored": cache_success,
+#             "cache_key": cache_key if cache_success else None,
+#             "will_expire_at": (
+#                 datetime.utcnow().timestamp() + OTX_CACHE_EXPIRATION
+#             ) if cache_success else None
+#         }
+        
+#         return response
+        
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error processing pulse data: {str(e)}")
+
+# # Cache management endpoints
+# @dashboard_router.delete("/otx/cache/clear")
+# async def clear_pulse_cache():
+#     """Clear all OTX pulse-related cache entries."""
+#     try:
+#         cleared_count = invalidate_cache_pattern("otx_cache:*")
+#         return {
+#             "message": f"Cleared {cleared_count} cache entries",
+#             "cleared_at": datetime.utcnow().isoformat()
+#         }
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error clearing cache: {str(e)}")
+
+# @dashboard_router.get("/otx/cache/status")
+# async def get_cache_status():
+#     """Get Redis cache connection status and stats."""
+#     if not redis_client:
+#         return {
+#             "connected": False,
+#             "message": "Redis client not available"
+#         }
+    
+#     try:
+#         info = redis_client.info()
+#         cache_keys = redis_client.keys("otx_cache:*")
+        
+#         return {
+#             "connected": True,
+#             "redis_version": info.get("redis_version"),
+#             "used_memory_human": info.get("used_memory_human"),
+#             "connected_clients": info.get("connected_clients"),
+#             "cache_entries": len(cache_keys),
+#             "cache_keys": cache_keys[:10] if cache_keys else [],  # Show first 10 keys
+#             "cache_expiration_hours": OTX_CACHE_EXPIRATION // 3600
+#         }
+#     except Exception as e:
+#         return {
+#             "connected": False,
+#             "error": str(e)
+#         }
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from typing import List, Dict, Any, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from collections import defaultdict, Counter
 import json
 import redis
 import hashlib
+import asyncio
+import httpx
+import os
+import logging
 from contextlib import asynccontextmanager
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Constants
 OTX_CACHE_EXPIRATION = 4 * 24 * 60 * 60  # 4 days in seconds
-
-
 OTX_API_KEY = os.getenv("ALIEN_VAULT_KEY")
-async def fetch_otx_pulses() -> List[Dict[str, Any]]:
 
-    if not OTX_API_KEY:
-        raise HTTPException(status_code=500, detail="OTX API key not configured")
-
-    headers = {
-        "X-OTX-API-KEY": OTX_API_KEY
-    }
-    url = "https://otx.alienvault.com/api/v1/search/pulses?limit=100&page=1&sort=-modified"
-    # In production, you would use httpx or requests:
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            pulses = response.json().get("results", [])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch OTX data: {str(e)}")
-
-    return pulses
+MAX_PAGES = 6  # Fetch up to 6 pages (50 * 6 = 300 pulses)
+PULSES_PER_PAGE = 50
+CACHE_REFRESH_INTERVAL = 6 * 60 * 60  # Refresh cache every 6 hours
 
 
 
-# async def fetch_otx_pulses(max_pages: int = 5, delay: float = 2.0) -> List[Dict[str, Any]]:
-#     """
-#     Fetch OTX pulses with pagination and delay between requests.
+
+
     
-#     :param max_pages: Number of pages to fetch (default is 5 = 500 pulses)
-#     :param delay: Delay in seconds between requests (default is 1.0 second)
-#     """
-#     if not OTX_API_KEY:
-#         raise HTTPException(status_code=500, detail="OTX API key not configured")
 
-#     headers = {
-#         "X-OTX-API-KEY": OTX_API_KEY
-#     }
 
-#     all_pulses = []
-#     timeout = httpx.Timeout(20.0, connect=10.0, read=20.0)
-#     async with httpx.AsyncClient(timeout=timeout) as client:
-#         for page in range(1, max_pages + 1):
-#             url = f"https://otx.alienvault.com/api/v1/search/pulses?limit=100&page={page}&sort=-modified"
-#             try:
-#                 response = await client.get(url, headers=headers)
-#                 response.raise_for_status()
-#                 data = response.json()
-#                 pulses = data.get("results", [])
-#                 if not pulses:
-#                     break  # Stop if no more data
-#                 all_pulses.extend(pulses)
-#                 # await asyncio.sleep(delay)  # Delay before next request
-#             except httpx.HTTPStatusError as e:
-#                 raise HTTPException(status_code=500, detail=f"HTTP error on page {page}: {e.response.status_code} - {e.response.text}")
-#             except Exception as e:
-#                 tb = traceback.format_exc()
-#                 raise HTTPException(status_code=500, detail=f"Unexpected error on page {page}: {str(e)}\n{tb}")
+async def fetch_single_page_otx_pulses(page: int = 1, limit: int = PULSES_PER_PAGE) -> Dict[str, Any]:
+    """
+    Fetch a single page of OTX pulses.
+    
+    Args:
+        page: Page number (1-based)
+        limit: Number of pulses per page
+    
+    Returns:
+        dict: Raw API response containing pulses and metadata
+    """
+    if not OTX_API_KEY:
+        raise ValueError("OTX API key not configured")
 
-#     return all_pulses
+    headers = {"X-OTX-API-KEY": OTX_API_KEY}
+    url = f"https://otx.alienvault.com/api/v1/search/pulses?limit={limit}&page={page}&sort=-modified"
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=headers)
+            logger.info(f"OTX API Page {page} - Status: {response.status_code}")
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                "results": data.get("results", []),
+                "count": data.get("count", 0),
+                "next": data.get("next"),
+                "page": page
+            }
+    except httpx.TimeoutException:
+        logger.error(f"Timeout fetching OTX page {page}")
+        raise
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error fetching OTX page {page}: {e.response.status_code}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error fetching OTX page {page}: {str(e)}")
+        raise
+
+async def fetch_multiple_pages_otx_pulses(max_pages: int = MAX_PAGES) -> List[Dict[str, Any]]:
+    """
+    Fetch multiple pages of OTX pulses asynchronously.
+    
+    Args:
+        max_pages: Maximum number of pages to fetch
+    
+    Returns:
+        list: Combined list of all pulses from all pages
+    """
+    logger.info(f"Starting to fetch {max_pages} pages of OTX pulses")
+    
+    # Create tasks for all pages
+    tasks = []
+    for page in range(1, max_pages + 1):
+        task = fetch_single_page_otx_pulses(page, PULSES_PER_PAGE)
+        tasks.append(task)
+    
+    # Execute all tasks concurrently
+    try:
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        all_pulses = []
+        successful_pages = 0
+        
+        for i, result in enumerate(results, 1):
+            if isinstance(result, Exception):
+                logger.error(f"Failed to fetch page {i}: {result}")
+                continue
+            
+            page_pulses = result.get("results", [])
+            all_pulses.extend(page_pulses)
+            successful_pages += 1
+            logger.info(f"Successfully fetched page {i}: {len(page_pulses)} pulses")
+        
+        logger.info(f"Completed fetching {successful_pages}/{max_pages} pages, total pulses: {len(all_pulses)}")
+        return all_pulses
+        
+    except Exception as e:
+        logger.error(f"Error in concurrent fetch: {str(e)}")
+        raise
+
 def get_otx_cache_key(endpoint: str, params: Optional[Dict] = None) -> str:
     """Generate a consistent cache key for the endpoint."""
-    key_data = f"{endpoint}"
+    key_data = f"otx:{endpoint}"
     if params:
-        # Sort params for consistent key generation
         sorted_params = json.dumps(params, sort_keys=True)
         key_data += f":{sorted_params}"
     
-    # Create a hash for cleaner keys
-    return f"otx_cache:{hashlib.md5(key_data.encode()).hexdigest()}"
+    return f"cache:{hashlib.md5(key_data.encode()).hexdigest()}"
 
 def get_otx_from_cache(cache_key: str) -> Optional[Dict]:
     """Retrieve data from Redis cache."""
@@ -353,7 +664,7 @@ def get_otx_from_cache(cache_key: str) -> Optional[Dict]:
         if cached_data:
             return json.loads(cached_data)
     except (redis.RedisError, json.JSONDecodeError) as e:
-        print(f"Cache read error: {e}")
+        logger.error(f"Cache read error: {e}")
     
     return None
 
@@ -366,39 +677,126 @@ def set_otx_to_cache(cache_key: str, data: Dict, expiration: int = OTX_CACHE_EXP
         redis_client.setex(
             cache_key,
             expiration,
-            json.dumps(data, default=str)  # default=str handles datetime serialization
+            json.dumps(data, default=str)
         )
+        logger.info(f"Data cached with key: {cache_key}")
         return True
     except (redis.RedisError, json.JSONEncodeError) as e:
-        print(f"Cache write error: {e}")
+        logger.error(f"Cache write error: {e}")
         return False
 
-def invalidate_cache_pattern(pattern: str) -> int:
-    """Invalidate cache entries matching a pattern."""
+def set_cache_metadata(key: str, metadata: Dict) -> bool:
+    """Store cache metadata separately."""
     if not redis_client:
-        return 0
+        return False
     
     try:
-        keys = redis_client.keys(pattern)
-        if keys:
-            return redis_client.delete(*keys)
-        return 0
-    except redis.RedisError as e:
-        print(f"Cache invalidation error: {e}")
-        return 0
-    
+        metadata_key = f"{key}:metadata"
+        redis_client.setex(
+            metadata_key,
+            OTX_CACHE_EXPIRATION,
+            json.dumps(metadata, default=str)
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error storing cache metadata: {e}")
+        return False
 
+async def refresh_otx_cache() -> bool:
+    """
+    Background task to refresh OTX pulse cache.
+    
+    Returns:
+        bool: True if cache was successfully refreshed
+    """
+    logger.info("Starting OTX cache refresh")
+    
+    try:
+        # Fetch fresh data
+        pulses = await fetch_multiple_pages_otx_pulses(MAX_PAGES)
+        
+        if not pulses:
+            logger.warning("No pulses received during cache refresh")
+            return False
+        
+        # Process the datasets
+        trending_timeline = process_trending_timeline(pulses)
+        top_malware_families = process_top_malware_families(pulses)
+        popularity_leaderboard = process_popularity_leaderboard(pulses)
+        indicator_type_distribution = process_indicator_type_distribution(pulses)
+        
+        # Structure the response
+        response = {
+            "trendingTimeline": trending_timeline,
+            "topMalwareFamilies": top_malware_families,
+            "popularityLeaderboard": popularity_leaderboard,
+            "indicatorTypeDistribution": indicator_type_distribution,
+            "metadata": {
+                "total_pulses": len(pulses),
+                "processed_at": datetime.utcnow().isoformat(),
+                "cache_duration_hours": OTX_CACHE_EXPIRATION // 3600,
+                "pages_fetched": min(MAX_PAGES, (len(pulses) // PULSES_PER_PAGE) + 1)
+            }
+        }
+        
+        # Cache the response
+        cache_key = get_otx_cache_key("pulse_insights")
+        cache_success = set_otx_to_cache(cache_key, response)
+        
+        # Store metadata about the cache refresh
+        if cache_success:
+            metadata = {
+                "last_refresh": datetime.utcnow().isoformat(),
+                "next_refresh": (datetime.utcnow() + timedelta(seconds=CACHE_REFRESH_INTERVAL)).isoformat(),
+                "refresh_success": True,
+                "pulses_count": len(pulses)
+            }
+            set_cache_metadata(cache_key, metadata)
+        
+        logger.info(f"Cache refresh completed successfully. Cached {len(pulses)} pulses")
+        return cache_success
+        
+    except Exception as e:
+        logger.error(f"Cache refresh failed: {str(e)}")
+        # Store error metadata
+        cache_key = get_otx_cache_key("pulse_insights")
+        error_metadata = {
+            "last_refresh_attempt": datetime.utcnow().isoformat(),
+            "last_error": str(e),
+            "refresh_success": False
+        }
+        set_cache_metadata(cache_key, error_metadata)
+        return False
+
+async def cache_refresh_scheduler():
+    """Background scheduler for cache refresh."""
+    logger.info("Cache refresh scheduler started")
+    
+    # Initial cache population
+    await refresh_otx_cache()
+    
+    while True:
+        try:
+            await asyncio.sleep(CACHE_REFRESH_INTERVAL)
+            await refresh_otx_cache()
+        except Exception as e:
+            logger.error(f"Error in cache refresh scheduler: {e}")
+            await asyncio.sleep(60)  # Wait 1 minute before retrying
+
+# Data processing functions (from your original code)
 def process_trending_timeline(pulses: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Process pulses to create trending attack campaigns timeline."""
     date_counts = defaultdict(int)
     
     for pulse in pulses:
-        # Parse the created date and extract just the date part
-        created_datetime = datetime.fromisoformat(pulse["created"].replace("Z", "+00:00"))
-        date_str = created_datetime.date().isoformat()
-        date_counts[date_str] += 1
+        try:
+            created_datetime = datetime.fromisoformat(pulse["created"].replace("Z", "+00:00"))
+            date_str = created_datetime.date().isoformat()
+            date_counts[date_str] += 1
+        except (KeyError, ValueError) as e:
+            logger.warning(f"Error processing pulse date: {e}")
+            continue
     
-    # Sort by date ascending
     timeline = [
         {"date": date_str, "count": count}
         for date_str, count in sorted(date_counts.items())
@@ -416,7 +814,6 @@ def process_top_malware_families(pulses: List[Dict[str, Any]]) -> List[Dict[str,
             if family_name:
                 malware_counts[family_name] += 1
     
-    # Get top 10 malware families
     top_malware = [
         {"malware_family": family, "count": count}
         for family, count in malware_counts.most_common(10)
@@ -426,7 +823,6 @@ def process_top_malware_families(pulses: List[Dict[str, Any]]) -> List[Dict[str,
 
 def process_popularity_leaderboard(pulses: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Process pulses to create popularity leaderboard by subscriber count."""
-    # Sort by subscriber_count descending and take top 10
     sorted_pulses = sorted(
         pulses, 
         key=lambda x: x.get("subscriber_count", 0), 
@@ -437,7 +833,8 @@ def process_popularity_leaderboard(pulses: List[Dict[str, Any]]) -> List[Dict[st
         {
             "pulse_name": pulse.get("name", "Unknown"),
             "subscriber_count": pulse.get("subscriber_count", 0),
-            "export_count": pulse.get("export_count", 0)
+            "export_count": pulse.get("export_count", 0),
+            "created": pulse.get("created", "")
         }
         for pulse in sorted_pulses
     ]
@@ -455,342 +852,91 @@ def process_indicator_type_distribution(pulses: List[Dict[str, Any]]) -> Dict[st
     
     return dict(total_indicators)
 
+# API Endpoints
 @dashboard_router.get("/otx/pulse-insights")
 async def get_pulse_insights():
     """
-    Fetch and process AlienVault OTX pulse data to return structured insights.
-    Results are cached in Redis for 4 days to improve performance.
+    Serve cached OTX pulse insights. Always returns immediately from cache.
+    If cache is empty, returns a message indicating data is being fetched.
     
     Returns:
-        dict: JSON response containing trending timeline, top malware families,
-              popularity leaderboard, and indicator type distribution.
+        dict: JSON response containing pulse insights or loading message
     """
-    # Generate cache key
     cache_key = get_otx_cache_key("pulse_insights")
     
-    # Try to get from cache first
+    # Always try cache first
     cached_result = get_otx_from_cache(cache_key)
+    
     if cached_result:
-        logger.info(f"OTX Cache hit for key: {cache_key}")
-        # Add cache metadata
+        logger.info("Serving data from cache")
         cached_result["_cache_info"] = {
-            "cached": True,
-            "cache_key": cache_key,
-            "retrieved_at": datetime.utcnow().isoformat()
+            "served_from_cache": True,
+            "served_at": datetime.utcnow().isoformat()
         }
         return cached_result
     
-    try:
-        
-        pulses = await fetch_otx_pulses()
-        
-        if not pulses:
-            raise HTTPException(status_code=404, detail="No pulse data available")
-        
-        # Process the different datasets
-        trending_timeline = process_trending_timeline(pulses)
-        top_malware_families = process_top_malware_families(pulses)
-        popularity_leaderboard = process_popularity_leaderboard(pulses)
-        indicator_type_distribution = process_indicator_type_distribution(pulses)
-        
-        # Structure the response
-        response = {
-            "trendingTimeline": trending_timeline,
-            "topMalwareFamilies": top_malware_families,
-            "popularityLeaderboard": popularity_leaderboard,
-            "indicatorTypeDistribution": indicator_type_distribution,
-            "metadata": {
-                "total_pulses": len(pulses),
-                "processed_at": datetime.utcnow().isoformat(),
-                "cache_duration_hours": OTX_CACHE_EXPIRATION // 3600
-            }
+    # If no cache, return loading message but don't wait
+    logger.info("No cached data available, returning loading message")
+    return {
+        "message": "Threat intelligence data is being fetched and processed. Please try again in a few moments.",
+        "status": "loading",
+        "estimated_wait_seconds": 30,
+        "_cache_info": {
+            "served_from_cache": False,
+            "cache_empty": True,
+            "background_fetch_in_progress": True
         }
-        
-        # Cache the response
-        cache_success = set_otx_to_cache(cache_key, response)
-        
-        # Add cache info to response
-        response["_cache_info"] = {
-            "cached": False,
-            "cache_stored": cache_success,
-            "cache_key": cache_key if cache_success else None,
-            "will_expire_at": (
-                datetime.utcnow().timestamp() + OTX_CACHE_EXPIRATION
-            ) if cache_success else None
-        }
-        
-        return response
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing pulse data: {str(e)}")
+    }
 
-# Cache management endpoints
-@dashboard_router.delete("/otx/cache/clear")
-async def clear_pulse_cache():
-    """Clear all OTX pulse-related cache entries."""
-    try:
-        cleared_count = invalidate_cache_pattern("otx_cache:*")
-        return {
-            "message": f"Cleared {cleared_count} cache entries",
-            "cleared_at": datetime.utcnow().isoformat()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error clearing cache: {str(e)}")
-
-@dashboard_router.get("/otx/cache/status")
-async def get_cache_status():
-    """Get Redis cache connection status and stats."""
-    if not redis_client:
-        return {
-            "connected": False,
-            "message": "Redis client not available"
-        }
+# @app.post("/api/otx/refresh-cache")
+# async def trigger_cache_refresh(background_tasks: BackgroundTasks):
+#     """
+#     Manually trigger a cache refresh (useful for testing or immediate updates).
     
-    try:
-        info = redis_client.info()
-        cache_keys = redis_client.keys("otx_cache:*")
-        
-        return {
-            "connected": True,
-            "redis_version": info.get("redis_version"),
-            "used_memory_human": info.get("used_memory_human"),
-            "connected_clients": info.get("connected_clients"),
-            "cache_entries": len(cache_keys),
-            "cache_keys": cache_keys[:10] if cache_keys else [],  # Show first 10 keys
-            "cache_expiration_hours": OTX_CACHE_EXPIRATION // 3600
-        }
-    except Exception as e:
-        return {
-            "connected": False,
-            "error": str(e)
-        }
-
-# # Additional endpoint to demonstrate the data structure
-# @app.get("/api/otx/sample-pulse")
-# async def get_sample_pulse():
-#     """Return a sample pulse for reference."""
-#     return SAMPLE_PULSES[0] if SAMPLE_PULSES else {}
-
-
-
-
-
-# # Constants
-# CACHE_TTL = 172800  # 2 days in seconds
-# SHODAN_BASE_URL = "https://api.shodan.io"
-
-
-
-# async def get_shodan_api_key() -> str:
-#     """Get Shodan API key from environment variables."""
-#     api_key = os.getenv("SHODAN_AUTH_KEY")
-#     if not api_key:
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail="SHODAN_API_KEY environment variable not set"
-#         )
-#     return api_key
-
-
-
-
-# async def make_shodan_request(endpoint: str, api_key: str) -> Dict[str, Any]:
-#     """Make async HTTP request to Shodan API."""
-#     url = f"{SHODAN_BASE_URL}/{endpoint}"
-#     params = {"key": api_key}
+#     Returns:
+#         dict: Status message
+#     """
+#     background_tasks.add_task(refresh_otx_cache)
     
-#     try:
-#         async with httpx.AsyncClient(timeout=30.0) as client:
-#             response = await client.get(url, params=params)
-            
-#             if response.status_code == 401:
-#                 raise HTTPException(
-#                     status_code=status.HTTP_401_UNAUTHORIZED,
-#                     detail="Invalid Shodan API key"
-#                 )
-#             elif response.status_code == 403:
-#                 raise HTTPException(
-#                     status_code=status.HTTP_403_FORBIDDEN,
-#                     detail="Shodan API access forbidden - check your plan limits"
-#                 )
-#             elif response.status_code == 429:
-#                 raise HTTPException(
-#                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-#                     detail="Shodan API rate limit exceeded"
-#                 )
-#             elif response.status_code != 200:
-#                 raise HTTPException(
-#                     status_code=status.HTTP_502_BAD_GATEWAY,
-#                     detail=f"Shodan API error: {response.status_code}"
-#                 )
-            
-#             return response.json()
-            
-#     except httpx.TimeoutException:
-#         raise HTTPException(
-#             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-#             detail="Shodan API request timeout"
-#         )
-#     except httpx.RequestError as e:
-#         logger.error(f"Shodan API request error: {e}")
-#         raise HTTPException(
-#             status_code=status.HTTP_502_BAD_GATEWAY,
-#             detail="Failed to connect to Shodan API"
-#         )
+#     return {
+#         "message": "Cache refresh triggered",
+#         "status": "initiated",
+#         "timestamp": datetime.utcnow().isoformat()
+#     }
 
-# def generate_shodan_cache_key(endpoint: str) -> str:
-#     """Generate a unique cache key based on request parameters"""
-#     key_data = f"shodan:{endpoint}"
-#     return hashlib.md5(key_data.encode()).hexdigest()
-# @dashboard_router.get("/top-ports")
-# async def get_top_ports():
+# @app.get("/api/otx/cache-status")
+# async def get_cache_status():
 #     """
-#     Get the top open ports globally from Shodan.
-#     Returns cached data if available, otherwise fetches fresh data.
-#     """
-#     cache_key = generate_shodan_cache_key("top_ports")
+#     Get information about the current cache status.
     
-#     try:
-#         redis = redis_client
-#         api_key = await get_shodan_api_key()
-        
-#         # Try to get cached data
-#         cached_data = get_cached_data(cache_key)
-#         if cached_data:
-#             return JSONResponse(content=cached_data)
-        
-#         # Fetch fresh data from Shodan
-#         logger.info("Fetching top ports from Shodan API")
-#         raw_data = await make_shodan_request("shodan/ports", api_key)
-        
-#         # Process and structure the response
-#         response_data = {
-#             "endpoint": "top-ports",
-#             "cached": False,
-#             "data": raw_data,
-#             "total_ports": len(raw_data) if isinstance(raw_data, list) else None
-#         }
-        
-#         # Cache the processed data
-#         await set_cached_data(redis, cache_key, response_data)
-        
-#         return JSONResponse(content=response_data)
-        
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"Unexpected error in get_top_ports: {e}")
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail="Internal server error"
-#         )
-
-
-# @dashboard_router.get("/top-services")
-# async def get_top_services():
+#     Returns:
+#         dict: Cache status information
 #     """
-#     Get the top exposed services globally from Shodan.
-#     Returns cached data if available, otherwise fetches fresh data.
-#     """
-#     cache_key = generate_shodan_cache_key("top_services")
-
-#     try:
-#         redis = redis_client
-#         api_key = await get_shodan_api_key()
-        
-#         # Try to get cached data
-#         cached_data = get_cached_data(cache_key)
-#         if cached_data:
-#             return JSONResponse(content=cached_data)
-        
-#         # Fetch fresh data from Shodan
-#         logger.info("Fetching top services from Shodan API")
-#         raw_data = await make_shodan_request("shodan/services", api_key)
-        
-#         # Process and structure the response
-#         response_data = {
-#             "endpoint": "top-services",
-#             "cached": False,
-#             "data": raw_data,
-#             "total_services": len(raw_data) if isinstance(raw_data, dict) else None
-#         }
-        
-#         # Cache the processed data
-#         await set_cached_data(redis, cache_key, response_data)
-        
-#         return JSONResponse(content=response_data)
-        
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"Unexpected error in get_top_services: {e}")
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail="Internal server error"
-#         )
-
-
-# @dashboard_router.get("/top-countries")
-# async def get_top_countries():
-#     """
-#     Get the top countries by number of exposed hosts from Shodan.
-#     Returns cached data if available, otherwise fetches fresh data.
-#     """
-#     cache_key = generate_shodan_cache_key("top_countries")
-
-#     try:
-#         redis = redis_client
-#         api_key = await get_shodan_api_key()
-        
-#         # Try to get cached data
-#         cached_data = get_cached_data(cache_key)
-#         if cached_data:
-#             return JSONResponse(content=cached_data)
-        
-#         # Fetch fresh data from Shodan
-#         logger.info("Fetching top countries from Shodan API")
-#         raw_data = await make_shodan_request("shodan/host-search", api_key)
-        
-#         # For countries, we need to use a different approach since Shodan doesn't have a direct endpoint
-#         # We'll use the query endpoint with facets to get country statistics
-#         country_data = await make_shodan_request(
-#             "shodan/host/search?query=*&facets=country:50", 
-#             api_key
-#         )
-        
-#         # Extract country facet data
-#         countries = []
-#         if "facets" in country_data and "country" in country_data["facets"]:
-#             for item in country_data["facets"]["country"]:
-#                 countries.append({
-#                     "country_code": item["value"],
-#                     "host_count": item["count"]
-#                 })
-        
-#         # Process and structure the response
-#         response_data = {
-#             "endpoint": "top-countries",
-#             "cached": False,
-#             "data": {
-#                 "countries": countries,
-#                 "total_results": country_data.get("total", 0)
-#             },
-#             "total_countries": len(countries)
-#         }
-        
-#         # Cache the processed data
-#         await set_cached_data(redis, cache_key, response_data)
-        
-#         return JSONResponse(content=response_data)
-        
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"Unexpected error in get_top_countries: {e}")
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail="Internal server error"
-#         )
+#     cache_key = get_otx_cache_key("pulse_insights")
+    
+#     # Check if main cache exists
+#     cached_data = get_otx_from_cache(cache_key)
+#     has_cache = cached_data is not None
+    
+#     # Get cache metadata
+#     metadata = get_otx_from_cache(f"{cache_key}:metadata")
+    
+#     # Get TTL from Redis
+#     ttl = None
+#     if redis_client and has_cache:
+#         try:
+#             ttl = redis_client.ttl(cache_key)
+#         except redis.RedisError:
+#             pass
+    
+#     return {
+#         "cache_exists": has_cache,
+#         "cache_key": cache_key,
+#         "ttl_seconds": ttl,
+#         "metadata": metadata,
+#         "redis_connected": redis_client is not None,
+#         "checked_at": datetime.utcnow().isoformat()
+#     }
 
 
 

@@ -1,5 +1,7 @@
 
+import asyncio
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.dashboard import cache_refresh_scheduler
 from app.crud.user_crud import UserCRUD
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -22,6 +24,7 @@ async def lifespan(app: FastAPI):
     print("✅ MongoDB connection setup complete")
     
     try:
+        asyncio.create_task(cache_refresh_scheduler())
         yield
     finally:
         await close_mongo_connection()
@@ -149,6 +152,46 @@ async def websocket_health():
         "timestamp": datetime.utcnow().isoformat(),
         "connections": stats
     }
+ 
+from pydantic import BaseModel
+from datetime import datetime
+
+class Alert(BaseModel):
+    """Alert for matched keyword"""
+    user_id: str
+    message_id: int
+    channel_username: str
+    channel_display_name: str
+    matched_keyword: str
+    message_text: str
+    message_url: str
+    timestamp: datetime
+    sent: bool = False
+    created_at: datetime = None
+    
+from app.services.websocket_service import websocket_manager   
+@app.get("/api/ws/send-alert")
+async def trigger_fake_alert():
+    # Fake user (normally from DB)
+    user_crud = UserCRUD()
+    user = await user_crud.get_user_by_id("687620effcae33bf9555540a")
+
+    # Fake alert object
+    alert = Alert(
+            user_id=user.id,
+            message_id=4567,
+            channel_username="@fake_channel",
+            channel_display_name="Fake Channel",
+            matched_keyword="malware",
+            message_text="Suspicious activity detected in the channel. Please review immediately.",
+            message_url="http://example.com/message/4567",
+            timestamp=datetime.utcnow(),
+            sent=False,
+            created_at=datetime.utcnow()
+        )
+
+    success = await websocket_manager.send_alert(alert, user)
+    return {"sent": success, "user": user.dict(), "alert": alert.dict()}
 
 @app.get("/", response_class=HTMLResponse)
 async def api_health():

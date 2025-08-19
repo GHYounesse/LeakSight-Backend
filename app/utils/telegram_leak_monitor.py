@@ -26,7 +26,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.database import connect_to_mongo, close_mongo_connection
-
+from app.services.websocket_service import websocket_manager
 load_dotenv()
 
 # Streamlined logging configuration
@@ -567,7 +567,8 @@ class MultiUserTelegramMonitor:
             smtp_port=int(os.getenv('SMTP_PORT', 587)),
             smtp_user=os.getenv('SMTP_USERNAME'),
             smtp_pass=os.getenv('SMTP_PASSWORD'),
-            
+            websocket_manager=websocket_manager
+
         )
         
         
