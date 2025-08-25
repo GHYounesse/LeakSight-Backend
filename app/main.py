@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     print("✅ MongoDB connection setup complete")
     
     try:
-        asyncio.create_task(cache_refresh_scheduler())
+        #asyncio.create_task(cache_refresh_scheduler())
         yield
     finally:
         await close_mongo_connection()
@@ -49,7 +49,7 @@ app.add_middleware(
 
 
 from fastapi.staticfiles import StaticFiles
-app.mount("/static", StaticFiles(directory="C:\\Users\\HP\\Desktop\\LeakSight\\static"), name="static")
+app.mount("/static", StaticFiles(directory="C:\\Users\\HP\\Desktop\\LeakSight-Backend\\static"), name="static")
 
 
 

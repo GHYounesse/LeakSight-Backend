@@ -76,63 +76,121 @@ class IOCCRUD:
         return IOCResponse(**ioc_doc)
     
       
-    async def create_ioc_bulk(self, bulk_request,current_user: str ):
-        """Create bulk of iocs """
+    # async def create_ioc_bulk(self, bulk_request,current_user: str ):
+    #     """Create bulk of iocs """
         
-        failed=[]
-        created=[]
-        # Check if ioc already exists
+    #     failed=[]
+    #     created=[]
+    #     # Check if ioc already exists
+    #     iocs = bulk_request.get("iocs", [])
+    #     for i, ioc in enumerate(iocs):
+    #         try:
+    #             print("ioc:", ioc)
+    #             # Check if IOC already exists
+    #             existing_ioc = await self.collection.find_one({
+    #                 "$or": [
+    #                     {"value": ioc.value},
+    #                     {"type": ioc.type}
+    #                 ]
+    #             })
+                
+    #             if existing_ioc:
+    #                 failed.append({
+    #                 "index": i,
+    #                 "ioc": ioc,
+    #                 "error":f"IOC with value '{ioc.value}' and type '{ioc.type}' already exists"
+    #                 })
+    #                 continue
+                
+    #             ioc_id = generate_ioc_id()
+    #             now = datetime.utcnow()
+                
+    #             ioc_doc = {
+    #                 "id":ioc_id,
+    #                 "created_at":now,
+    #                 "updated_at":now,
+    #                 "created_by":current_user,
+    #                 "updated_by":current_user,
+    #                 "value": ioc.value,
+    #                 "type": ioc.type,
+    #                 "threat_level": ioc.threat_level,
+    #                 "status": ioc.status,
+    #                 "description": ioc.description,
+    #                 "source": ioc.source,
+    #                 "confidence": ioc.confidence,
+    #                 "tags": ioc.tags,
+    #                 "metadata": ioc.metadata,
+    #                 "expiration_date": ioc.expiration_date
+
+    #             }
+                
+    #             # Create user document
+                
+                
+    #             result = await self.collection.insert_one(ioc_doc)
+    #             ioc_doc["id"] = str(result.inserted_id)
+    #             created.append(ioc_doc)    
+                
+                
+                
+    #         except Exception as e:
+    #             failed.append({
+    #                 "index": i,
+    #                 "ioc": ioc,
+    #                 "error": str(e)
+    #             })
+
+    #     return created,failed
+    async def create_ioc_bulk(self, bulk_request, current_user: str):
+        """Create bulk of iocs"""
+        failed = []
+        created = []
+
         iocs = bulk_request.get("iocs", [])
         for i, ioc in enumerate(iocs):
             try:
-                print(ioc)
-                # Check if IOC already exists
                 existing_ioc = await self.collection.find_one({
-                    "$or": [
-                        {"value": ioc.value},
-                        {"type": ioc.type}
+                    "$and": [
+                        {"value": ioc["value"]},
+                        {"type": ioc["type"]}
                     ]
                 })
-                
+
                 if existing_ioc:
                     failed.append({
-                    "index": i,
-                    "ioc": ioc,
-                    "error":f"IOC with value '{ioc.value}' and type '{ioc.type}' already exists"
+                        "index": i,
+                        "ioc": ioc,
+                        "error": f"IOC with value '{ioc['value']}' and type '{ioc['type']}' already exists"
                     })
                     continue
-                
+
                 ioc_id = generate_ioc_id()
                 now = datetime.utcnow()
-                
-                ioc_doc = {
-                    "id":ioc_id,
-                    "created_at":now,
-                    "updated_at":now,
-                    "created_by":current_user,
-                    "updated_by":current_user,
-                    "value": ioc.value,
-                    "type": ioc.type,
-                    "threat_level": ioc.threat_level,
-                    "status": ioc.status,
-                    "description": ioc.description,
-                    "source": ioc.source,
-                    "confidence": ioc.confidence,
-                    "tags": ioc.tags,
-                    "metadata": ioc.metadata,
-                    "expiration_date": ioc.expiration_date
 
+                ioc_doc = {
+                    "id": ioc_id,
+                    "created_at": now,
+                    "updated_at": now,
+                    "created_by": current_user.id,
+                    "updated_by": current_user.id,
+                    "value": ioc["value"],
+                    "type": ioc["type"],
+                    "threat_level": ioc["threat_level"],
+                    "status": ioc["status"],
+                    "description": ioc["description"],
+                    "source": ioc["source"],
+                    "confidence": ioc["confidence"],
+                    "tags": ioc.get("tags", []),
+                    "metadata": ioc.get("metadata", {}),
+                    "expiration_date": ioc.get("expiration_date")
                 }
-                
-                # Create user document
-                
-                
+
                 result = await self.collection.insert_one(ioc_doc)
                 ioc_doc["id"] = str(result.inserted_id)
-                created.append(ioc_doc)    
-                
-                
-                
+                if "_id" in ioc_doc:
+                    del ioc_doc["_id"]
+                created.append(ioc_doc)
+
             except Exception as e:
                 failed.append({
                     "index": i,
@@ -140,9 +198,8 @@ class IOCCRUD:
                     "error": str(e)
                 })
 
-        return created,failed
-        
-      
+        return created, failed
+
     async def get_filtered_iocs(self,type: str = None,
     threat_level: str = None,
     status: str = None,

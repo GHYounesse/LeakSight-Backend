@@ -161,16 +161,41 @@ async def create_ioc(ioc: IOCCreate,
     
     return ioc
 
+# @ioc_router.post("/bulk")
+# async def bulk_create_iocs(bulk_request: Dict[str, Any] = Body(...),
+#     current_user: UserInDB = Depends(get_current_active_user)):
+#     """Bulk IOC upload"""
+#     #print(bulk_request)
+#     created = []
+#     failed = []
+#     ioc_crud=  IOCCRUD()
+#     try:
+#         failed,created= await ioc_crud.create_ioc_bulk(bulk_request,current_user)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+    
+#     summary = {
+#         "total_submitted": len(bulk_request["iocs"]),
+#         "created": len(created),
+#         "failed": len(failed)
+#     }
+    
+#     return {
+#         "created":created,
+#         "failed":failed,
+#         "summary":summary
+#     }
+
+
 @ioc_router.post("/bulk")
-async def bulk_create_iocs(bulk_request: Dict[str, Any] = Body(...),
-    current_user: UserInDB = Depends(get_current_active_user)):
+async def bulk_create_iocs(
+    bulk_request: Dict[str, Any] = Body(...),
+    current_user: UserInDB = Depends(get_current_active_user)
+):
     """Bulk IOC upload"""
-    print(bulk_request)
-    created = []
-    failed = []
-    ioc_crud=  IOCCRUD()
+    ioc_crud = IOCCRUD()
     try:
-        failed,created= await ioc_crud.create_ioc_bulk(bulk_request,current_user)
+        created, failed = await ioc_crud.create_ioc_bulk(bulk_request, current_user)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
@@ -179,11 +204,15 @@ async def bulk_create_iocs(bulk_request: Dict[str, Any] = Body(...),
         "created": len(created),
         "failed": len(failed)
     }
-    
+    print({
+        "created": created,
+        "failed": failed,
+        "summary": summary
+    })
     return {
-        "created":created,
-        "failed":failed,
-        "summary":summary
+        "created": created,
+        "failed": failed,
+        "summary": summary
     }
 
 @ioc_router.get("/")
