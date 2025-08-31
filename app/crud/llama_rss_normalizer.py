@@ -128,8 +128,8 @@ class LlamaRSSNormalizer:
         url = f"{self.base_url}/api/generate"
         
         # Reduced timeout since we expect faster responses
-        timeout = aiohttp.ClientTimeout(total=60)  # 1 minute max
-        
+        timeout = aiohttp.ClientTimeout(total=300)  # 2 minutes max
+
         try:
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(url, json=payload) as response:
@@ -148,7 +148,7 @@ class LlamaRSSNormalizer:
                         return ""
 
         except asyncio.TimeoutError:
-            logger.error("⏳ Timeout - response took >60s")
+            logger.error("⏳ Timeout - response took >120s")
             return ""
         except Exception as e:
             logger.error(f"🔥 Error during Llama call: {e}")
@@ -158,17 +158,17 @@ class LlamaRSSNormalizer:
         """Shorter, more direct prompt for faster processing"""
         return f"""Convert RSS item to JSON format:
 
-    {{"title":"","link":"","publishedDate":"","summary":"","content":"","source":"{source_name}","categories":[],"priority":""}}
+            {{"title":"","link":"","publishedDate":"","summary":"","content":"","source":"{source_name}","categories":[],"priority":""}}
 
-    Priority rules:
-    High: vulnerability, zero-day, exploit, ransomware, RCE, SQLi, XSS, breach
-    Medium: patch, intel, cloud, DoS  
-    Low: practices, IoT, updates
-    Information: events, news
+            Priority rules:
+            High: vulnerability, zero-day, exploit, ransomware, RCE, SQLi, XSS, breach
+            Medium: patch, intel, cloud, DoS  
+            Low: practices, IoT, updates
+            Information: events, news
 
-    Input: {json.dumps(rss_item_json, separators=(',', ':'))}
+            Input: {json.dumps(rss_item_json, separators=(',', ':'))}
 
-    JSON only:"""
+            JSON only:"""
     def parse_llama_response(self, response: str) -> Dict[str, Any]:
         """Parse and validate Llama response"""
         try:
@@ -231,10 +231,10 @@ class LlamaRSSNormalizer:
         try:
             # Prepare item for processing
             rss_item_json = self.prepare_rss_item_json(item)
-            # print("rss_item_json:", rss_item_json)
+            
             # Build prompt
             prompt = self.build_normalization_prompt(rss_item_json, source_name)
-            # print("prompt:", prompt)
+            
             # Call Llama
             logger.info(f"🤖 Processing: {item.get('title', 'Untitled')[:60]}...")
             response = await self.call_llama(prompt)
@@ -308,7 +308,7 @@ class LlamaRSSNormalizer:
                 }]
 
             result = await self.collection.bulk_write(operations, ordered=False)
-            print(result.bulk_api_result)
+            
             return {"inserted": 99, "modified": 99}
         except Exception as e:
             logger.error(f"Bulk upsert error: {e}")
@@ -353,7 +353,7 @@ async def process_feeds_with_llama(feeds: List[Dict[str, str]]) -> List[FeedMode
                 # Process all items for this feed
                 tasks = [process_single_item(item) for item in items_to_process]
                 feed_results = await asyncio.gather(*tasks, return_exceptions=True)
-                print("feed_results:",feed_results)
+                
                 # Collect successful results
                 for result in feed_results:
                     

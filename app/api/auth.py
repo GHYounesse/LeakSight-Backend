@@ -8,16 +8,13 @@ from app.services import auth_service
 from app.database import get_database
 from app.dependencies import logger
 from jose import JWTError, jwt
-from typing import Optional
-from bson import ObjectId
+from passlib.context import CryptContext
 
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 
 
-
-# Security scheme for Bearer token
 security = HTTPBearer()
 
 
@@ -36,20 +33,20 @@ async def get_current_user(
     )
     
     try:
-        # Extract token from credentials
+        
         token = credentials.credentials
-        print("token:",token)
+        
         # Decode JWT token
         payload = jwt.decode(
             token, 
             settings.secret_key, 
             algorithms=[settings.algorithm]
         )
-        #print("Payload:",payload)
         
-        # Extract user info from token
+        
+        
         user_id: str = payload.get("sub")
-        #print("User_id:",user_id)
+        
         email: str = payload.get("email")
         
         if user_id is None or email is None:
@@ -63,7 +60,7 @@ async def get_current_user(
     user_crud = UserCRUD()
     try:
         user = await user_crud.get_user_by_id(user_id)
-        # print("User:",user)
+        
         if user is None:
             raise credentials_exception
             
@@ -99,22 +96,11 @@ async def get_current_active_user(
 async def register(user: UserCreate):
     """Register a new user"""
     
-    print(f"Registering user: {user.username} with email: {user.email}")
+    logger.info(f"Registering user: {user.username} with email: {user.email}")
     user_crud = UserCRUD()
     
     try:
         created_user = await user_crud.create_user(user)
-        # return UserResponse(
-        #     id=str(created_user.id),
-        #     email=created_user.email,
-        #     username=created_user.username,
-        #     full_name=created_user.full_name,
-        #     role=created_user.role,
-        #     is_active=created_user.is_active,
-        #     created_at=created_user.created_at,
-        #     last_login=created_user.last_login,
-        #     status=created_user.status
-        # )
         return Message(
             message="User created successfully",
             status="success"
@@ -122,7 +108,7 @@ async def register(user: UserCreate):
     except HTTPException:
         raise
     except Exception as e:
-        print("Error in register route:", repr(e))
+        logger.error(f"Error in register route: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create user"
@@ -136,7 +122,7 @@ async def login(login_data: LoginRequest):
     user_crud = UserCRUD()
     
     try:
-        print(f"Logging in user: {login_data.email}")
+        logger.info(f"Logging in user: {login_data.email}")
         user = await user_crud.authenticate_user(login_data.email, login_data.password)
         if not user:
             raise HTTPException(
@@ -144,6 +130,7 @@ async def login(login_data: LoginRequest):
                 detail="Invalid credentials"
             )
         
+
         # Create tokens
         access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
         refresh_token_expires = timedelta(minutes=settings.refresh_token_expire_minutes)
@@ -156,7 +143,7 @@ async def login(login_data: LoginRequest):
             data={"sub": str(user.id), "email": user.email, "role": user.role},
             expires_delta=refresh_token_expires
         )
-        
+        logger.info(f"User authenticated successfully: {login_data.email}")
         return Token(
             username=user.username,
             access_token=access_token,
@@ -167,7 +154,7 @@ async def login(login_data: LoginRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print("Error in login route:", repr(e))
+        logger.error(f"Error in login route: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Login failed"
@@ -236,10 +223,7 @@ async def request_reset_password(
     try:
         # Check if user exists and is active
         user = await user_crud.get_user_by_email(request.email)
-        # user = await users_collection.find_one({
-        #     "email": request.email,
-        #     "is_active": True
-        # })
+        
         
         if user:
             # Generate and store reset token
@@ -261,7 +245,7 @@ async def request_reset_password(
             )
             
     except Exception as e:
-        print(f"Error in request_reset_password: {str(e)}")
+        logger.error(f"Error in request_reset_password: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail="An error occurred while processing your request. Please try again later."
@@ -299,7 +283,7 @@ async def reset_password(
             )
         
         # Hash the new password (you should use proper password hashing)
-        from passlib.context import CryptContext
+        
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         hashed_password = pwd_context.hash(new_password)
         
@@ -317,7 +301,7 @@ async def reset_password(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error resetting password: {str(e)}")
+        logger.error(f"Error resetting password: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail="An error occurred while resetting password"

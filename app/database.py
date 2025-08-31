@@ -1,17 +1,5 @@
 from pymongo import MongoClient
-
-# client = MongoClient("mongodb://localhost:27017/")
-# db = client["threat_intel"]
-
-
-
-
-# iocs=db["iocs"]
-# feeds_col = db["feeds"]
-
-# users = db["users"]
-
-
+from app.dependencies import logger
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import IndexModel, ASCENDING
 from app.config import settings
@@ -21,23 +9,12 @@ class Database:
         
         self.client: AsyncIOMotorClient = None
         self.database = None
-        self.users_col = None
-        
-        
-        
+        self.users_col = None   
+        self.pulses=None     
         self.iocs = None
         self.feeds = None
-        
         self.password_reset_tokens_col = None
-        
         self.enrichment = None   
-        self.analysis_jobs = None
-        
-        self.scoring_jobs = None
-        self.score_history  = None
-        self.scoring_weights = None
-        self.weight_changes = None
-        
         self.subscriptions = None
         self.messages = None
         self.alerts = None
@@ -49,37 +26,25 @@ async def connect_to_mongo():
     db.database = db.client[settings.database_name]
     
     db.users_col = db.database["users"]
-    
-    
-    
     db.iocs = db.database["iocs"]
     db.feeds = db.database["feeds"]
-   
     db.password_reset_tokens_col = db.database["password_reset_tokens"]
-    
-    
     db.enrichment = db.database["enrichment"]   
-    db.analysis_jobs = db.database["analysis_jobs"]
-    
-    
-    db.scoring_jobs = db.database["scoring_jobs"]
-    db.score_history  = db.database["score_history "]   
-    db.scoring_weights = db.database["scoring_weights"]
-    db.weight_changes = db.database["weight_changes"]
-    
     db.subscriptions = db.database["subscriptions"]
     db.messages = db.database["messages"]
     db.alerts = db.database["alerts"]
+    db.pulses= db.database["pulses"]
     
 
 
     await create_indexes()
-    print("✅ Connected to MongoDB")
+    logger.info("✅ Connected to MongoDB")
+    
 
 async def close_mongo_connection():
     if db.client:
         db.client.close()
-        print("🔌 Disconnected from MongoDB")
+        logger.info("🔌 Disconnected from MongoDB")
 
 async def create_indexes():
     indexes = [

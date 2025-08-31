@@ -8,7 +8,6 @@ Multi-User Telegram Channel Monitor with Keyword Alerts
 from bson import ObjectId
 import asyncio
 import logging
-import json
 import os
 import sys
 from app.database import db
@@ -16,10 +15,9 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Set, Optional
 from dataclasses import dataclass, asdict
 from telethon import TelegramClient
-from telethon.tl.types import Channel, User, Chat
+from telethon.tl.types import Channel, User
 from telethon.errors import FloodWaitError, ChannelPrivateError, ChatAdminRequiredError
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure, DuplicateKeyError
+from pymongo.errors import  DuplicateKeyError
 from dotenv import load_dotenv
 import re
 import smtplib
@@ -84,7 +82,7 @@ class UserChannelSubscription:
     keywords: List[UserKeyword]
     enabled: bool = True
     created_at: datetime = None
-    update_at :Optional[datetime]=None
+    updated_at: Optional[datetime] = None
 
 @dataclass
 class Alert:
@@ -104,23 +102,23 @@ class NotificationService:
     """Handle different types of notifications"""
     
     def __init__(self, smtp_host: str = None, smtp_port: int = 587, 
-                 smtp_user: str = None, smtp_pass: str = None,websocket_manager=None
+                 smtp_user: str = None, smtp_pass: str = None,ws_manager=None
                  ):
         self.smtp_host = smtp_host
         self.smtp_port = smtp_port
         self.smtp_user = smtp_user
         self.smtp_pass = smtp_pass
-        self.websocket_manager = websocket_manager
+        self.ws_manager = websocket_manager
         
     
     async def send_websocket_alert(self, user: User, alert: Alert):
         """Send real-time WebSocket alert"""
         try:
-            if not self.websocket_manager:
+            if not self.ws_manager:
                 logger.warning("WebSocket manager not configured")
                 return False
                 
-            success = await self.websocket_manager.send_alert(alert, user)
+            success = await self.ws_manager.send_alert(alert, user)
             
             if success:
                 logger.info(f"🌐 WebSocket alert sent to {user.username} for keyword '{alert.matched_keyword}'")
@@ -567,7 +565,7 @@ class MultiUserTelegramMonitor:
             smtp_port=int(os.getenv('SMTP_PORT', 587)),
             smtp_user=os.getenv('SMTP_USERNAME'),
             smtp_pass=os.getenv('SMTP_PASSWORD'),
-            websocket_manager=websocket_manager
+            ws_manager=websocket_manager
 
         )
         

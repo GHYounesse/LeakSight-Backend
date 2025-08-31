@@ -7,6 +7,7 @@ import smtplib
 import secrets
 import hashlib
 from fastapi import BackgroundTasks
+from app.dependencies import logger
 class ResetTokenCRUD:
     def __init__(self):
         
@@ -289,10 +290,10 @@ class ResetTokenCRUD:
                     text = msg.as_string()
                     server.sendmail(settings.FROM_EMAIL, email, text)
                     
-                print(f"Password reset email sent successfully to {email}")
+                logger.info(f"Password reset email sent successfully to {email}")
                 
             except Exception as e:
-                print(f"Failed to send email to {email}: {str(e)}")
+                logger.error(f"Failed to send email to {email}: {str(e)}")
                 # In production, you might want to log this error or retry
         
         background_tasks.add_task(send_email)

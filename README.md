@@ -144,9 +144,9 @@ The API will be available at:
 
 ### 2️⃣ Run Background Worker That Normalizes Feeds
 ```bash
-python app/worker.py
+python -m app.worker
 ```
 ### 3️⃣ Run the Telegram Monitor script
 ```bash
-python utils.telegram_leak_monitor.py
+python -m app.utils.telegram_leak_monitor
 ```

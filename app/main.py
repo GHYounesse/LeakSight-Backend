@@ -5,23 +5,37 @@ from app.api.dashboard import cache_refresh_scheduler
 from app.crud.user_crud import UserCRUD
 from datetime import datetime
 from contextlib import asynccontextmanager
-from app.models import UserInDB
-from app.api import auth_router,  ioc_router,subs_router,enrichment_router, feeds_router,dashboard_router
+from app.api import auth_router,  ioc_router,subs_router,enrichment_router, feeds_router,dashboard_router,ws_router
 from app.database import connect_to_mongo, close_mongo_connection
-from fastapi import FastAPI,Query, WebSocket, WebSocketDisconnect, Depends, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, status
 from app.services.websocket_service import websocket_manager
+from app.crud.user_crud import UserCRUD
 import json
-from app.api.auth import get_current_active_user
 from app.config import settings
 from jose import  jwt
 from fastapi.responses import HTMLResponse
+from app.models.auth.user import UserCreate
+from app.dependencies import logger
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     
     print("🔄 Trying to connect to MongoDB...")
     await connect_to_mongo()
-    print("✅ MongoDB connection setup complete")
+    
+    user_crud = UserCRUD()
+    if not await user_crud.is_admin_created():
+        admin_user = await user_crud.create_user(UserCreate(
+            email=settings.ADMIN_EMAIL,
+            username=settings.ADMIN_USERNAME,
+            password=settings.ADMIN_PASSWORD,
+            role="admin"
+        ))
+    print("✅ Admin user created")
     
     try:
         #asyncio.create_task(cache_refresh_scheduler())
@@ -34,7 +48,6 @@ app = FastAPI(
     title="Threat Intelligence Monitoring API",
     description="Threat Intelligence Monitoring API",
     version="1.0.0",lifespan=lifespan
-    # ,docs_url=None, redoc_url=None
 )
 
 
@@ -48,8 +61,8 @@ app.add_middleware(
 
 
 
-from fastapi.staticfiles import StaticFiles
-app.mount("/static", StaticFiles(directory="C:\\Users\\HP\\Desktop\\LeakSight-Backend\\static"), name="static")
+
+app.mount("/static", StaticFiles(directory=f"{settings.STATIC_FILES_DIR}\\LeakSight-Backend\\static"), name="static")
 
 
 
@@ -70,128 +83,12 @@ app.include_router(feeds_router)
 
 app.include_router(dashboard_router)
 
-
-
-# from fastapi.openapi.docs import get_swagger_ui_html
-# from app.api.auth import get_current_active_user
-# @app.get("/docs", include_in_schema=False)
-# async def custom_swagger_ui( current_user: UserInDB = Depends(get_current_active_user)):
-#     return get_swagger_ui_html(openapi_url="/openapi.json", title="Protected Docs")
+app.include_router(ws_router)
 
 
 
-# Web Socket Endpoints
-@app.websocket("/ws/alerts/{token}")
-async def websocket_alerts_authenticated(websocket: WebSocket,token:str):
-    """WebSocket endpoint for authenticated user alerts"""
-    # Verify token
-    print("Made it here:")
-    payload = jwt.decode(
-            token, 
-            settings.secret_key, 
-            algorithms=[settings.algorithm]
-    )
-        
-        
-        # Extract user info from token
-    user_id: str = payload.get("sub")
-    user_crud=  UserCRUD()
-    user=await user_crud.get_user_by_id(user_id=user_id)
-        
-    
-    user_id, username = user.id,user.username
-    
-    if not user_id:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-    
-    await websocket_manager.connect(websocket, user_id)
-    
-    try:
-        # Send welcome message
-        welcome_message = {
-            "type": "welcome",
-            "message": f"Connected to threat intelligence alerts",
-            "user_id": user_id,
-            "username": username,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        await websocket.send_text(json.dumps(welcome_message))
-        
-        while True:
-            # Handle incoming messages
-            data = await websocket.receive_text()
-            message = json.loads(data)
-            
-            if message.get("type") == "ping":
-                await websocket.send_text(json.dumps({
-                    "type": "pong",
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "user_id": user_id
-                }))
-            elif message.get("type") == "subscribe":
-                # Handle subscription updates
-                await websocket.send_text(json.dumps({
-                    "type": "subscription_updated",
-                    "message": "Subscription preferences updated",
-                    "timestamp": datetime.utcnow().isoformat()
-                }))
-                
-    except WebSocketDisconnect:
-        websocket_manager.disconnect(websocket, user_id)
 
 
-# Health check endpoint for WebSocket service  
-@app.get("/api/ws/health")
-async def websocket_health():
-    """WebSocket service health check"""
-    stats = websocket_manager.get_connection_stats()
-    return {
-        "status": "healthy",
-        "service": "websocket_alerts",
-        "timestamp": datetime.utcnow().isoformat(),
-        "connections": stats
-    }
- 
-from pydantic import BaseModel
-from datetime import datetime
-
-class Alert(BaseModel):
-    """Alert for matched keyword"""
-    user_id: str
-    message_id: int
-    channel_username: str
-    channel_display_name: str
-    matched_keyword: str
-    message_text: str
-    message_url: str
-    timestamp: datetime
-    sent: bool = False
-    created_at: datetime = None
-    
-from app.services.websocket_service import websocket_manager   
-@app.get("/api/ws/send-alert")
-async def trigger_fake_alert():
-    # Fake user (normally from DB)
-    user_crud = UserCRUD()
-    user = await user_crud.get_user_by_id("687620effcae33bf9555540a")
-
-    # Fake alert object
-    alert = Alert(
-            user_id=user.id,
-            message_id=4567,
-            channel_username="@fake_channel",
-            channel_display_name="Fake Channel",
-            matched_keyword="malware",
-            message_text="Suspicious activity detected in the channel. Please review immediately.",
-            message_url="http://example.com/message/4567",
-            timestamp=datetime.utcnow(),
-            sent=False,
-            created_at=datetime.utcnow()
-        )
-
-    success = await websocket_manager.send_alert(alert, user)
-    return {"sent": success, "user": user.dict(), "alert": alert.dict()}
 
 @app.get("/", response_class=HTMLResponse)
 async def api_health():

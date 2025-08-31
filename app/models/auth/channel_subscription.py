@@ -14,6 +14,15 @@ class SubscribeRequest(BaseModel):
     channel_username: str
     keywords: List[Keyword]
 
+class BulkSubscribeRequest(BaseModel):
+    #user_id: str
+    channel_usernames: List[str]
+    keywords: List[Keyword]
+
+class BulkUnsubscribeRequest(BaseModel):
+    #user_id: str
+    channel_usernames: List[str]
+
 @dataclass
 class UserKeyword:
     """User keyword configuration"""

@@ -50,9 +50,23 @@ class ThreatContext(BaseModel):
     reputation_score: float = Field(..., ge=0.0, le=100.0)
     analysis_timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-class AnalysisResult(BaseModel):
-    job_id: str
-    status: str
-    threat_context: Optional[ThreatContext] = None
-    error_message: Optional[str] = None
-    processing_time: Optional[float] = None
+
+# Pydantic models
+class IOCAnalysisRequest(BaseModel):
+    ioc: str = Field(..., description="Indicator of Compromise to analyze")
+    ioc_type: str = Field(..., description="Type of IOC (ip, domain, hash, url, etc.)")
+    
+
+# class BulkAnalysisRequest(BaseModel):
+#     iocs: List[Dict[str, str]] = Field(..., description="List of IOCs with their types")
+#     sources: Optional[List[str]] = Field(default=None, description="Specific sources to use")
+    
+
+
+class StatusResponse(BaseModel):
+    ioc: str
+    ioc_type: str
+    result: Optional[List[Dict[str, Any]]] = None
+    created_at: datetime
+    
+    

@@ -2,11 +2,11 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import HTTPException, status, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import secrets
+from fastapi import HTTPException, status
+from fastapi.security import HTTPBearer
 from app.config import settings
-from app.models import TokenData, Token
+from app.models import TokenData
+from app.dependencies import logger
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -56,9 +56,10 @@ class AuthService:
             
             payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
             
-            print(f"Invalid token type: {payload.get('type')}, expected: {token_type}")
+            
             # Check token type
             if payload.get("type") != token_type:
+                logger.error(f"Invalid token type: {payload.get('type')}, expected: {token_type}")
                 
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -68,17 +69,18 @@ class AuthService:
             user_id: str = payload.get("sub")
             username: str = payload.get("username")
             role: str = payload.get("role")
-            print(f"Decoded token - User ID: {user_id}, Username: {username}, Role: {role}")
+            
             if user_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Could not validate credentials"
                 )
+            logger.info(f"Decoded token - User ID: {user_id}, Username: {username}, Role: {role}")
             
             return TokenData(user_id=user_id, username=username, role=role)
             
         except JWTError as e:
-            print(f"JWTError: Invalid token - {e}")
+            logger.error(f"JWTError: Invalid token - {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials"

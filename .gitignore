@@ -62,3 +62,14 @@ dump/
 
 # Static files
 /static
+
+#Dockerfile
+Dockerfile
+
+# .bat
+*.bat
+#.session
+*.session
+*.session-journal
+#.log
+*.log

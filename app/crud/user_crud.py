@@ -3,11 +3,11 @@ from datetime import datetime, timedelta
 from bson import ObjectId
 from pymongo import ReturnDocument
 from fastapi import HTTPException, status
-from app.models import UserCreate, UserInDB, UserUpdate, UserResponse
+from app.models import UserCreate, UserInDB, UserUpdate
 from app.services import auth_service
 from app.models.enums import UserStatus
 from app.config import settings
-  # Assuming users is the collection for user data
+from app.dependencies import logger
 from app.database import db
 class UserCRUD:
     def __init__(self):
@@ -50,7 +50,7 @@ class UserCRUD:
             "locked_until": None,
             "status": UserStatus.ACTIVE.value
         }
-        print(user_doc)
+        
         result = await self.collection.insert_one(user_doc)
         user_doc["id"] = str(result.inserted_id)
         
@@ -60,13 +60,12 @@ class UserCRUD:
         """Get user by ID"""
         try:
             user_doc = await self.collection.find_one({"_id": ObjectId(user_id)})
-            #print("UserDoc:",user_doc)
+            
             if user_doc:
                 user_doc["id"]=str(user_doc.pop("_id"))
-                #del user_doc["_id"]
-                #print("User 2 :",UserInDB(**user_doc))
                 return UserInDB(**user_doc)
-        except Exception:
+        except Exception as e:
+            logger.error("Error fetching user by ID:", e)
             return None
         return None
     
@@ -80,8 +79,6 @@ class UserCRUD:
             return UserInDB(**user_doc)
         return None
     
-    
-    
     async def get_user_by_email(self, email: str) -> Optional[UserInDB]:
         """Get user by email"""
         user_doc = await self.collection.find_one({"email": email})
@@ -90,6 +87,15 @@ class UserCRUD:
             del user_doc["_id"]  # Remove ObjectId field
             return UserInDB(**user_doc)
         return None
+    
+    async def is_admin_created(self) -> bool:
+        """Return True if admin user exists, False otherwise"""
+        admin_email = settings.ADMIN_EMAIL
+        if not admin_email:
+            return False  # No env var set = no admin defined
+
+        admin_user = await self.get_user_by_email(admin_email)
+        return admin_user is not None
     
     async def update_user(self, user_id: str, user_update: UserUpdate) -> Optional[UserInDB]:
         """Update user"""
@@ -147,11 +153,11 @@ class UserCRUD:
     
     async def authenticate_user(self, email: str, password: str) -> Optional[UserInDB]:
         """Authenticate user"""
-        print(f"Try Authenticating user - Email: {email}")
+        logger.info(f"Attempting authentication for user - Email: {email}")
         user = await self.get_user_by_email(email)
         if not user:
             return None
-        print(f"Authenticating user - ID {user.id}: {user.username}")
+        logger.info(f"Authenticating user - ID {user.id}: {user.username}")
 
         # Check if account is locked
         if user.locked_until and user.locked_until > datetime.utcnow():

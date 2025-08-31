@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     WEBSOCKET_HOST: str = Field(..., alias="WEBSOCKET_HOST")
     WEBSOCKET_PORT: int = Field(..., alias="WEBSOCKET_PORT")
 
+    ADMIN_USERNAME: str = Field(..., alias="ADMIN_USERNAME")
+    ADMIN_EMAIL: str = Field(..., alias="ADMIN_EMAIL")
+    ADMIN_PASSWORD: str = Field(..., alias="ADMIN_PASSWORD")
+
+    REDIS_URL: str = Field(..., alias="REDIS_URL")
+    STATIC_FILES_DIR: str = Field(..., alias="STATIC_FILES_DIR")
+
     class Config:
         env_file = ".env"
         validate_by_name = True

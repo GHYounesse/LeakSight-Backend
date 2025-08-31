@@ -1,13 +1,8 @@
-# websocket_service.py
 import json
-import asyncio
-import logging
 from typing import Dict, List, Set
 from fastapi import WebSocket
 from datetime import datetime
-from dataclasses import asdict
-
-logger = logging.getLogger(__name__)
+from app.dependencies import logger
 
 class WebSocketManager:
     """Manages WebSocket connections for real-time alerts"""
@@ -101,18 +96,7 @@ class WebSocketManager:
             # Send to specific user
             await self.send_personal_message(alert_message, alert.user_id)
             
-            # Also broadcast to admin/monitoring dashboard (optional)
-            admin_message = {
-                **alert_message,
-                "type": "admin_alert",
-                "data": {
-                    **alert_message["data"],
-                    "user_email": user.email
-                }
-            }
             
-            # You can implement admin-specific broadcasting here
-            # await self.broadcast_to_admins(admin_message)
             
             logger.info(f"WebSocket alert sent to user {user.username} for keyword '{alert.matched_keyword}'")
             return True
@@ -121,25 +105,7 @@ class WebSocketManager:
             logger.error(f"Error sending WebSocket alert: {e}")
             return False
     
-    # def _calculate_severity(self, keyword: str) -> str:
-    #     """Calculate alert severity based on keyword"""
-    #     high_priority_keywords = [
-    #         'vulnerability', 'exploit', 'breach', 'malware', 'ransomware', 
-    #         'zero-day', 'attack', 'hack', 'compromise', 'backdoor'
-    #     ]
-        
-    #     medium_priority_keywords = [
-    #         'threat', 'suspicious', 'phishing', 'scam', 'leak', 'exposure'
-    #     ]
-        
-    #     keyword_lower = keyword.lower()
-        
-    #     if any(hp_keyword in keyword_lower for hp_keyword in high_priority_keywords):
-    #         return "HIGH"
-    #     elif any(mp_keyword in keyword_lower for mp_keyword in medium_priority_keywords):
-    #         return "MEDIUM"
-    #     else:
-    #         return "LOW"
+    
     
     def get_connection_stats(self) -> dict:
         """Get connection statistics"""

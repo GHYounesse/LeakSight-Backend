@@ -1,20 +1,14 @@
 import aiohttp
-from typing import List ,Dict, Any
 import asyncio
 from .threat_intels import THREAT_INTEL_SOURCES
 from app.models.enrichment.models import ThreatSeverity
 import httpx
 import base64
-import json
-from collections import defaultdict
 from datetime import datetime
 import re
-import logging
-from typing import Dict, Any
 import json
-import logging
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List,Dict, Any
+from app.dependencies import logger
 
 class ThreatIntelligenceEngine:
     def __init__(self):
@@ -79,23 +73,6 @@ class ThreatIntelligenceEngine:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return self._merge_ip_results(results)
     
-    
-    # async def analyze_url(self, url: str) -> Dict[str, Any]:
-    #     """Analyze URL across multiple threat intelligence sources"""
-    #     tasks = []
-        
-    #     if THREAT_INTEL_SOURCES["virustotal"]["enabled"]:
-    #         tasks.append(self._query_virustotal_url(url))
-        
-    #     if THREAT_INTEL_SOURCES["urlscan"]["enabled"]:
-    #         tasks.append(self._query_urlscan_url(url))
-        
-    #     if THREAT_INTEL_SOURCES["alien_vault"]["enabled"]:
-    #         tasks.append(self._query_alient_vault_url(url))
-        
-    #     results = await asyncio.gather(*tasks, return_exceptions=True)
-    #     return self._merge_url_results(results)
-    
     async def analyze_url(self, url: str) -> Dict[str, Any]:
         """Analyze URL across multiple threat intelligence sources"""
         tasks = []
@@ -116,8 +93,7 @@ class ThreatIntelligenceEngine:
             return self._merge_url_results(results)
         except Exception as e:
             # Log the error and return a meaningful error response
-            import logging
-            logger = logging.getLogger(__name__)
+            
             logger.error(f"Error in analyze_url: {e}")
             return {
                 "sources": [],
@@ -217,7 +193,7 @@ class ThreatIntelligenceEngine:
                 "error": str(e)
             }
     
-    from typing import Dict, Any
+    
 
     async def _query_abuseipdb_ip(self,ip: str) -> Dict[str, Any]:
         url = f'{THREAT_INTEL_SOURCES["abuseipdb"]["base_url"]}check'
@@ -355,22 +331,25 @@ class ThreatIntelligenceEngine:
             "Content-Type": "application/json"
         }
 
-        url = f'{THREAT_INTEL_SOURCES["urlscan"]["base_url"]}scan/'
+        url = f'{THREAT_INTEL_SOURCES["urlscan"]["base_url"]}/scan/'
         json_data = {
             "url": domain,
             "visibility": "private"  # You can also set "private" if needed
         }
+        
 
         try:
             async with self.session.post(url, headers=headers, json=json_data) as response:
                 if response.status == 200:
                     data = await response.json()
+                    logger.info("URLScan.io Response:", data)
                     return {
                         "source": "urlscan",
                         "status": "success",
                         "data": data  # Contains `uuid`, `result`, `api` links, etc.
                     }
                 else:
+                    logger.error("URLScan.io Response:", f"HTTP {response.status} - {await response.text()}")
                     return {
                         "source": "urlscan",
                         "status": "error",
@@ -414,63 +393,7 @@ class ThreatIntelligenceEngine:
                 "error": str(e)
             }
     
-    # async def _query_shodan_ip(self, ip: str) -> Dict[str, Any]:
-    #     """Query Shodan for IP information"""
-    #     try:
-    #         async with self.session.get(
-    #             f"{THREAT_INTEL_SOURCES['shodan']['base_url']}/shodan/host/{ip}",
-    #             params={"key": THREAT_INTEL_SOURCES["shodan"]["api_key"]}
-    #         ) as response:
-    #             if response.status == 200:
-    #                 data = await response.json()
-    #                 return {
-    #                     "source": "shodan",
-    #                     "status": "success",
-    #                     "data": data
-    #                 }
-    #             else:
-    #                 return {
-    #                     "source": "shodan",
-    #                     "status": "error",
-    #                     "error": f"HTTP {response.status}"
-    #                 }
-    #     except Exception as e:
-    #         return {
-    #             "source": "shodan",
-    #             "status": "error",
-    #             "error": str(e)
-    #         }
     
-    # async def _query_alienvault_ip(self, ip: str) -> Dict[str, Any]:
-    #     """Query AlienVault OTX for IP threat intelligence"""
-    #     headers = {
-    #         "X-OTX-API-KEY": THREAT_INTEL_SOURCES["alienvault"]["api_key"]
-    #     }
-
-    #     base_url = THREAT_INTEL_SOURCES["alienvault"]["base_url"]  # e.g. https://otx.alienvault.com/api/v1
-    #     url = f"{base_url}/indicators/IPv4/{ip}/general"
-
-    #     try:
-    #         async with self.session.get(url, headers=headers) as response:
-    #             if response.status == 200:
-    #                 data = await response.json()
-    #                 return {
-    #                     "source": "alienvault",
-    #                     "status": "success",
-    #                     "data": data
-    #                 }
-    #             else:
-    #                 return {
-    #                     "source": "alienvault",
-    #                     "status": "error",
-    #                     "error": f"HTTP {response.status} - {await response.text()}"
-    #                 }
-    #     except Exception as e:
-    #         return {
-    #             "source": "alienvault",
-    #             "status": "error",
-    #             "error": str(e)
-    #         }
 
 
     async def _query_hybridanalysis_hash(self, hash_value: str) -> Dict[str, Any]:
@@ -593,12 +516,9 @@ class ThreatIntelligenceEngine:
                             merged_data["tags"].extend(tags)
 
                 elif source == "malwarebazaar":
-                    # for i, entry in enumerate(source_data.get("data", []), start=1):
-                    #     w
+                   
                     for entry in source_data.get("data", []):
-                    #     print("MalwareBazaar Entry:")
-                    #     with open("output.json", "w", encoding="utf-8") as f:
-                    #         json.dump(entry, f, indent=4, ensure_ascii=False)
+                    
                         merged_data["hashes"] = {
                             "sha256": entry.get("sha256_hash"),
                             "sha3_384": entry.get("sha3_384_hash"),
@@ -657,14 +577,9 @@ class ThreatIntelligenceEngine:
                         vendor_intel = entry.get("vendor_intel", {})
                         
                         merged_data["vendor_intel"] = vendor_intel
-
-                        
-                        
-                        
-                        
-                       
+       
                 elif source == "hybridanalysis":
-                    print("Hybrid Analysis:", source_data)
+                    
 
                     
                     reports = source_data.get("reports", [])
@@ -673,11 +588,12 @@ class ThreatIntelligenceEngine:
                         
 
                         # Save individual report to JSON file
-                        # with open(f"output_{i}.json", "w", encoding="utf-8") as f:
-                        #     json.dump(report, f, indent=4, ensure_ascii=False)
+                        with open(f"output_{i}.json", "w", encoding="utf-8") as f:
+                            json.dump(report, f, indent=4, ensure_ascii=False)
 
                         # Extract severity based on verdict
                         verdict = report.get("verdict", "").lower()
+                        logger.info("verdict:",verdict)
                         if verdict == "malicious":
                             merged_data["severity"] = ThreatSeverity.HIGH
                         elif verdict == "suspicious":
@@ -697,7 +613,12 @@ class ThreatIntelligenceEngine:
 
                 merged_data["sources"].append(source)
         
-        
+        if merged_data["reputation_score"] > 50:
+                    merged_data["severity"] = ThreatSeverity.CRITICAL
+        elif merged_data["reputation_score"] > 20:
+                    merged_data["severity"] = ThreatSeverity.HIGH
+        elif merged_data["reputation_score"] > 5:
+                    merged_data["severity"] = ThreatSeverity.MEDIUM    
         for key in ["malware_signatures", "name", "description", "references", "tags", "malware_families", "attack_techniques", "targeted_countries", "sources"]:
             if isinstance(merged_data.get(key), list):
                 if merged_data[key] and isinstance(merged_data[key][0], dict):
@@ -709,50 +630,10 @@ class ThreatIntelligenceEngine:
         return merged_data
     def _merge_domain_results(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Merge results from multiple sources for domain analysis"""
-        # merged_data = {
-        #     "sources": [],
-        #     "related_iocs": [],
-        #     "threat_actors": [],
-        #     "severity": ThreatSeverity.LOW,
-        #     "confidence_score": 0.0,
-        #     "reputation_score": 0.0
-        # }
+        
         # with open(f"output.json", "w", encoding="utf-8") as f:
         #     json.dump(results, f, indent=4, ensure_ascii=False)
                 
-        # for result in results:
-        #     if isinstance(result, dict) and result.get("status") == "success":
-        #         source_data = result.get("data", {})
-        #         # Process VirusTotal data
-        #         if result.get("source") == "virustotal":
-        #             attributes = source_data.get("data", {}).get("attributes", {})
-        #             stats = attributes.get("last_analysis_stats", {})
-                    
-        #             malicious_count = stats.get("malicious", 0)
-        #             total_count = sum(stats.values())
-                    
-        #             if total_count > 0:
-        #                 reputation_score = (malicious_count / total_count) * 100
-        #                 merged_data["reputation_score"] = max(merged_data["reputation_score"], reputation_score)
-                
-        #         # Process AlienVault data
-        #         elif result.get("source") == "alienvault":
-        #             pulse_info = source_data.get("pulse_info", {})
-        #             if pulse_info.get("count", 0) > 0:
-        #                 merged_data["confidence_score"] = max(merged_data["confidence_score"], 0.7)
-        #                 merged_data["severity"] = ThreatSeverity.HIGH
-        #                 merged_data
-        #         elif result.get("source") == "urlscan":
-        #             pass
-                
-        #         merged_data["sources"].append(result.get("source"))
-        
-        # # Remove duplicates
-        # merged_data["related_iocs"] = list(set(merged_data["related_iocs"]))
-        # merged_data["threat_actors"] = list(set(merged_data["threat_actors"]))
-        # merged_data["sources"] = list(set(merged_data["sources"]))
-        
-        # return merged_data
         merged_data = {
         "reputation_score": 0,
         "confidence_score": 0,
@@ -772,7 +653,8 @@ class ThreatIntelligenceEngine:
             if isinstance(result, dict) and result.get("status") == "success":
                 source_data = result.get("data", {})
                 source_name = result.get("source")
-                
+                logger.info("Source: %s", source_name)
+
                 # Process VirusTotal data
                 if source_name == "virustotal":
                     vt_data = source_data.get("data", {})
@@ -919,6 +801,7 @@ class ThreatIntelligenceEngine:
                     
                 # Process URLScan data
                 elif source_name == "urlscan":
+                    
                     scan_uuid = source_data.get("uuid")
                     scan_result_url = source_data.get("result")
                     scan_api_url = source_data.get("api")
@@ -1285,164 +1168,7 @@ class ThreatIntelligenceEngine:
         return merged_data
     
     
-    # async def _query_alient_vault_url(self, url_to_check: str) -> Dict[str, Any]:
-    #     """Query AlienVault OTX for URL threat info"""
-    #     headers = {
-    #         "X-OTX-API-KEY": THREAT_INTEL_SOURCES["alient_vault"]["api_key"]
-    #     }
-
-    #     base_url = THREAT_INTEL_SOURCES["alient_vault"]["base_url"]  # e.g. https://otx.alienvault.com/api/v1
-    #     url = f"{base_url}/indicators/url/{url_to_check}/general"
-
-    #     try:
-    #         async with self.session.get(url, headers=headers) as response:
-    #             if response.status == 200:
-    #                 data = await response.json()
-    #                 return {
-    #                     "source": "alient_vault",
-    #                     "status": "success",
-    #                     "data": data
-    #                 }
-    #             else:
-    #                 return {
-    #                     "source": "alient_vault",
-    #                     "status": "error",
-    #                     "error": f"HTTP {response.status} - {await response.text()}"
-    #                 }
-    #     except Exception as e:
-    #         return {
-    #             "source": "alient_vault",
-    #             "status": "error",
-    #             "error": str(e)
-    #         }
-
-    # async def _query_urlscan_url(self, target_url: str) -> Dict[str, Any]:
-    #     """Submit a URL to URLScan.io for scanning"""
-    #     headers = {
-    #         "API-Key": THREAT_INTEL_SOURCES["urlscan"]["api_key"],
-    #         "Content-Type": "application/json"
-    #     }
-
-    #     payload = {
-    #         "url": target_url,
-    #         "visibility": "private"  # or "private"
-    #     }
-    #     base_url = THREAT_INTEL_SOURCES["urlscan"]["base_url"]  
-    #     url = f"{base_url}scan/"
-
-    #     try:
-    #         async with self.session.post(
-    #             url,
-    #             headers=headers,
-    #             json=payload
-    #         ) as response:
-    #             if response.status == 200:
-    #                 data = await response.json()
-    #                 return {
-    #                     "source": "urlscan",
-    #                     "status": "success",
-    #                     "data": data
-    #                 }
-    #             else:
-    #                 return {
-    #                     "source": "urlscan",
-    #                     "status": "error",
-    #                     "error": f"HTTP {response.status} - {await response.text()}"
-    #                 }
-    #     except Exception as e:
-    #         return {
-    #             "source": "urlscan",
-    #             "status": "error",
-    #             "error": str(e)
-    #         }
     
-
-    # async def _query_virustotal_url(self, url_to_check: str) -> Dict[str, Any]:
-    #     """Query VirusTotal for URL analysis"""
-    #     headers = {
-    #         "x-apikey": THREAT_INTEL_SOURCES["virustotal"]["api_key"]
-    #     }
-
-    #     # Encode the URL in URL-safe base64 without padding
-    #     url_bytes = url_to_check.encode("utf-8")
-    #     url_id = base64.urlsafe_b64encode(url_bytes).decode().strip("=")
-
-    #     vt_url = f'{THREAT_INTEL_SOURCES["virustotal"]["base_url"]}urls/{url_id}'
-
-    #     try:
-    #         async with self.session.get(vt_url, headers=headers) as response:
-    #             if response.status == 200:
-    #                 data = await response.json()
-    #                 return {
-    #                     "source": "virustotal",
-    #                     "status": "success",
-    #                     "data": data
-    #                 }
-    #             else:
-    #                 return {
-    #                     "source": "virustotal",
-    #                     "status": "error",
-    #                     "error": f"HTTP {response.status} - {await response.text()}"
-    #                 }
-    #     except Exception as e:
-    #         return {
-    #             "source": "virustotal",
-    #             "status": "error",
-    #             "error": str(e)
-    #         }
-
-    
-    
-    # def _merge_url_results(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
-    #     merged_data = {
-    #         "sources": [],
-    #         "geographic_info": {},
-    #         "threat_actors": [],
-    #         "severity": ThreatSeverity.LOW,
-    #         "confidence_score": 0.0,
-    #         "reputation_score": 0.0,
-    #         "malware_families": [],
-    #         "threat_types": [],
-    #         "network_info": {},
-    #         "certificate_info": {},
-    #         "detection_engines": {
-    #             "total": 0,
-    #             "malicious": 0,
-    #             "suspicious": 0,
-    #             "harmless": 0,
-    #             "undetected": 0
-    #         },
-    #         "abuse_reports": {},
-    #         "tags": [],
-    #         "last_seen": None,
-    #         "verdict": "UNKNOWN"
-    #     }
-        
-    #     for result in results:
-    #         # Remove debug output - should not be in production code
-    #         # Debug output should use logging instead
-    #         with open(f"output.json", "w", encoding="utf-8") as f:
-    #             json.dump(results, f, indent=4, ensure_ascii=False)
-         
-    #         if isinstance(result, dict) and result.get("status") == "success":
-    #             source_data = result.get("data", {})
-    #             source_name = result.get("source")
-                
-    #             # Add source to list immediately
-    #             if source_name:
-    #                 merged_data["sources"].append(source_name)
-                
-    #             # Process VirusTotal data
-    #             if source_name == "virustotal":
-    #                 pass
-                
-    #             # Process AbuseIPDB data
-    #             elif source_name == "urlscan":
-    #                 pass
-    #             # Process AlienVault/OTX data
-    #             elif source_name == "alientvault":
-    #                 pass
-    #     return merged_data
     
     
     
@@ -1477,45 +1203,7 @@ class ThreatIntelligenceEngine:
                 "error": str(e)
             }
 
-    # async def _query_urlscan_url(self, target_url: str) -> Dict[str, Any]:
-    #     """Submit a URL to URLScan.io for scanning"""
-    #     headers = {
-    #         "API-Key": THREAT_INTEL_SOURCES["urlscan"]["api_key"],
-    #         "Content-Type": "application/json"
-    #     }
-
-    #     payload = {
-    #         "url": target_url,
-    #         "visibility": "private"
-    #     }
-    #     base_url = THREAT_INTEL_SOURCES["urlscan"]["base_url"]  
-    #     url = f"{base_url}/scan/"  # Fixed missing 's' in scan
-
-    #     try:
-    #         async with self.session.post(
-    #             url,
-    #             headers=headers,
-    #             json=payload
-    #         ) as response:
-    #             if response.status == 200:
-    #                 data = await response.json()
-    #                 return {
-    #                     "source": "urlscan",
-    #                     "status": "success",
-    #                     "data": data
-    #                 }
-    #             else:
-    #                 return {
-    #                     "source": "urlscan",
-    #                     "status": "error",
-    #                     "error": f"HTTP {response.status} - {await response.text()}"
-    #                 }
-    #     except Exception as e:
-    #         return {
-    #             "source": "urlscan",
-    #             "status": "error",
-    #             "error": str(e)
-    #         }
+    
     
 
     async def _query_urlscan_url(self, target_url: str) -> Dict[str, Any]:
@@ -1667,7 +1355,6 @@ class ThreatIntelligenceEngine:
             "verdict": "UNKNOWN"
         }
         
-        logger = logging.getLogger(__name__)
         logger.debug(f"Processing {len(results)} results")
         
         # Tracking variables for verdict calculation
